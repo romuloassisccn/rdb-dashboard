@@ -1,9 +1,11 @@
-import { MapPinned, RadioTower, Thermometer, Wind } from "lucide-react";
+import { useState } from "react";
+import { Building2, MapPinned, RadioTower, Thermometer, Wind } from "lucide-react";
 import { PanelCard } from "./PanelCard";
 import type { DashboardAnalytics } from "@/hooks/use-cag-data";
 import type { VavReading } from "@/lib/mock-data";
 
 type Severity = "normal" | "baixo" | "moderado" | "alto" | "critico" | "sem_dados";
+type FloorId = "terreo" | "2pav";
 
 type ZoneConfig = {
   id: string;
@@ -11,6 +13,23 @@ type ZoneConfig = {
   sensors: string[];
   maskSrc: string;
   label: { x: number; y: number };
+};
+
+type FloorConfig = {
+  id: FloorId;
+  name: string;
+  shortName: string;
+  subtitle: string;
+  floorImg: string;
+  viewBox: string;
+  aspect: string;
+  zones: ZoneConfig[];
+  guide: {
+    verticals: number[];
+    horizontals: number[];
+    topLabels: Array<{ label: string; x: number; y: number }>;
+    bottomLabels: Array<{ label: string; x: number; y: number }>;
+  };
 };
 
 type ZoneStatus = ZoneConfig & {
@@ -22,29 +41,63 @@ type ZoneStatus = ZoneConfig & {
   worstSensor: string;
 };
 
-const FLOOR_IMG = "/floor-terreo-clean-v8.png";
-const VIEWBOX = "0 0 1668 795";
-const SOURCE_W = 1164;
-const SOURCE_H = 561;
-const TARGET_W = 1668;
-const TARGET_H = 795;
-const sx = TARGET_W / SOURCE_W;
-const sy = TARGET_H / SOURCE_H;
+const TERREO_SOURCE_W = 1164;
+const TERREO_SOURCE_H = 561;
+const TERREO_TARGET_W = 1668;
+const TERREO_TARGET_H = 795;
+const terreoSx = TERREO_TARGET_W / TERREO_SOURCE_W;
+const terreoSy = TERREO_TARGET_H / TERREO_SOURCE_H;
 
-function sp(x: number, y: number) {
-  return { x: Math.round(x * sx), y: Math.round(y * sy) };
+function sp1(x: number, y: number) {
+  return { x: Math.round(x * terreoSx), y: Math.round(y * terreoSy) };
 }
 
-// Máscaras geradas a partir do termográfico real do térreo.
-// Elas seguem os traços/limites internos do próprio supervisório, em vez de polígonos aproximados.
-// Isso evita pintar áreas internas de lojas e mantém o overlay alinhado aos corredores atendidos.
-const zoneConfigs: ZoneConfig[] = [
-  { id: "A1", title: "A1 · VAV 36", sensors: ["vav_36"], maskSrc: "/zone-masks-v12/A1.png", label: sp(220, 205) },
-  { id: "B1", title: "B1 · VAV 34 / VAV 35", sensors: ["vav_34", "vav_35"], maskSrc: "/zone-masks-v12/B1.png", label: sp(525, 204) },
-  { id: "C1", title: "C1 · VAV 32", sensors: ["vav_32"], maskSrc: "/zone-masks-v12/C1.png", label: sp(785, 145) },
-  { id: "D1", title: "D1 · VAV 30 / VAV 33", sensors: ["vav_30", "vav_33"], maskSrc: "/zone-masks-v12/D1.png", label: sp(1015, 265) },
-  { id: "F1", title: "F1 · VAV 37 / VAV 38 / VAV 39", sensors: ["vav_37", "vav_38", "vav_39"], maskSrc: "/zone-masks-v12/F1.png", label: sp(350, 374) },
-  { id: "G1", title: "G1 · VAV 31 / VAV 40", sensors: ["vav_31", "vav_40"], maskSrc: "/zone-masks-v12/G1.png", label: sp(695, 355) },
+const floorConfigs: FloorConfig[] = [
+  {
+    id: "terreo",
+    name: "Térreo",
+    shortName: "A1–G1",
+    subtitle: "Máscaras do termográfico real refinadas, coloridas dinamicamente por conforto térmico",
+    floorImg: "/floor-terreo-clean-v8.png",
+    viewBox: "0 0 1668 795",
+    aspect: "1668/795",
+    zones: [
+      { id: "A1", title: "A1 · VAV 36", sensors: ["vav_36"], maskSrc: "/zone-masks-v12/A1.png", label: sp1(220, 205) },
+      { id: "B1", title: "B1 · VAV 34 / VAV 35", sensors: ["vav_34", "vav_35"], maskSrc: "/zone-masks-v12/B1.png", label: sp1(525, 204) },
+      { id: "C1", title: "C1 · VAV 32", sensors: ["vav_32"], maskSrc: "/zone-masks-v12/C1.png", label: sp1(785, 145) },
+      { id: "D1", title: "D1 · VAV 30 / VAV 33", sensors: ["vav_30", "vav_33"], maskSrc: "/zone-masks-v12/D1.png", label: sp1(1015, 265) },
+      { id: "F1", title: "F1 · VAV 37 / VAV 38 / VAV 39", sensors: ["vav_37", "vav_38", "vav_39"], maskSrc: "/zone-masks-v12/F1.png", label: sp1(350, 374) },
+      { id: "G1", title: "G1 · VAV 31 / VAV 40", sensors: ["vav_31", "vav_40"], maskSrc: "/zone-masks-v12/G1.png", label: sp1(695, 355) },
+    ],
+    guide: {
+      verticals: [303, 724, 1094, 1263],
+      horizontals: [401],
+      topLabels: ["A", "B", "C", "D"].map((label, index) => ({ label, x: [185, 505, 905, 1292][index], y: 60 })),
+      bottomLabels: ["E", "F", "G", "H"].map((label, index) => ({ label, x: [185, 505, 905, 1292][index], y: 760 })),
+    },
+  },
+  {
+    id: "2pav",
+    name: "2º Pavimento",
+    shortName: "A2–G2",
+    subtitle: "Máscaras extraídas do termográfico do 2º pavimento, sem exibir os textos das VAVs na tela",
+    floorImg: "/floor-2pav-clean.png",
+    viewBox: "0 0 1668 751",
+    aspect: "1668/751",
+    zones: [
+      { id: "A2", title: "A2 · VAV 44", sensors: ["vav_44"], maskSrc: "/zone-masks-2pav/A2.png", label: { x: 255, y: 265 } },
+      { id: "B2", title: "B2 · VAV 43", sensors: ["vav_43"], maskSrc: "/zone-masks-2pav/B2.png", label: { x: 800, y: 282 } },
+      { id: "C2", title: "C2 · VAV 42", sensors: ["vav_42"], maskSrc: "/zone-masks-2pav/C2.png", label: { x: 1145, y: 205 } },
+      { id: "F2", title: "F2 · VAV 45", sensors: ["vav_45"], maskSrc: "/zone-masks-2pav/F2.png", label: { x: 530, y: 528 } },
+      { id: "G2", title: "G2 · VAV 41 / VAV 46", sensors: ["vav_41", "vav_46"], maskSrc: "/zone-masks-2pav/G2.png", label: { x: 1070, y: 500 } },
+    ],
+    guide: {
+      verticals: [410, 835, 1248],
+      horizontals: [356],
+      topLabels: ["A", "B", "C", "D"].map((label, index) => ({ label, x: [185, 520, 920, 1300][index], y: 55 })),
+      bottomLabels: ["E", "F", "G", "H"].map((label, index) => ({ label, x: [185, 520, 920, 1300][index], y: 715 })),
+    },
+  },
 ];
 
 const severityRank: Record<Severity, number> = {
@@ -101,7 +154,7 @@ function severityFromRaw(value: unknown): Severity {
   return "sem_dados";
 }
 
-function buildZoneStatuses(analytics: DashboardAnalytics | null, vavs: VavReading[]): ZoneStatus[] {
+function buildZoneStatuses(analytics: DashboardAnalytics | null, vavs: VavReading[], zones: ZoneConfig[]): ZoneStatus[] {
   const critical = Array.isArray(analytics?.conforto?.vavsCriticos) ? analytics.conforto.vavsCriticos : [];
   const criticalMap = new Map<string, Record<string, unknown>>();
   critical.forEach((item) => {
@@ -114,7 +167,7 @@ function buildZoneStatuses(analytics: DashboardAnalytics | null, vavs: VavReadin
   const vavMap = new Map<string, VavReading>();
   vavs.forEach((item) => vavMap.set(sensorKey(item.id), item));
 
-  return zoneConfigs.map((zone) => {
+  return zones.map((zone) => {
     const sensorRows = zone.sensors.map((sensor) => ({ sensor, critical: criticalMap.get(sensorKey(sensor)), reading: vavMap.get(sensorKey(sensor)) }));
 
     const pctValues = sensorRows.map(({ critical }) => n(critical?.percentualCritico)).filter((value): value is number => value !== null);
@@ -126,14 +179,7 @@ function buildZoneStatuses(analytics: DashboardAnalytics | null, vavs: VavReadin
       .filter((value): value is number => value !== null && value > 0);
     const readings = sensorRows.map(({ critical }) => n(critical?.leiturasCriticas)).filter((value): value is number => value !== null);
 
-    // Considera que a zona tem dado somente quando existe algum valor numérico útil
-    // no período filtrado. A existência de um objeto VAV sem temperatura não deve
-    // transformar a zona em Normal; nesse caso ela precisa aparecer como Sem dados.
-    const hasUsefulData =
-      pctValues.length > 0 ||
-      tempValues.length > 0 ||
-      maxValues.length > 0 ||
-      readings.length > 0;
+    const hasUsefulData = pctValues.length > 0 || tempValues.length > 0 || maxValues.length > 0 || readings.length > 0;
 
     const worst = sensorRows.reduce<{ sensor: string; pct: number; severity: Severity }>((acc, row) => {
       const pct = n(row.critical?.percentualCritico);
@@ -146,9 +192,7 @@ function buildZoneStatuses(analytics: DashboardAnalytics | null, vavs: VavReadin
 
     const maxPct = pctValues.length ? Math.max(...pctValues) : hasUsefulData ? 0 : null;
     const pctSeverity = severityFromPercent(maxPct);
-    const severity = hasUsefulData
-      ? (severityRank[worst.severity] >= severityRank[pctSeverity] ? worst.severity : pctSeverity)
-      : "sem_dados";
+    const severity = hasUsefulData ? (severityRank[worst.severity] >= severityRank[pctSeverity] ? worst.severity : pctSeverity) : "sem_dados";
 
     return {
       ...zone,
@@ -172,13 +216,34 @@ function StatusPill({ severity }: { severity: Severity }) {
 }
 
 export function OperationalFloorMap({ analytics, vavs }: { analytics: DashboardAnalytics | null; vavs: VavReading[] }) {
-  const zones = buildZoneStatuses(analytics, Array.isArray(vavs) ? vavs : []);
+  const [selectedFloor, setSelectedFloor] = useState<FloorId>("terreo");
+  const floor = floorConfigs.find((item) => item.id === selectedFloor) ?? floorConfigs[0];
+  const zones = buildZoneStatuses(analytics, Array.isArray(vavs) ? vavs : [], floor.zones);
   const criticalZones = zones.filter((zone) => ["alto", "critico"].includes(zone.severity)).length;
   const topZone = [...zones].sort((a, b) => b.criticalPct - a.criticalPct)[0];
 
   return (
-    <PanelCard title="Mapa operacional · Térreo" subtitle="Máscaras do termográfico real refinadas, coloridas dinamicamente por conforto térmico" glow="primary" right={<MapPinned className="size-4 text-cyan" />}>
+    <PanelCard title={`Mapa operacional · ${floor.name}`} subtitle={floor.subtitle} glow="primary" right={<MapPinned className="size-4 text-cyan" />}>
       <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="inline-flex rounded-2xl border border-border bg-secondary/25 p-1">
+            {floorConfigs.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setSelectedFloor(item.id)}
+                className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${selectedFloor === item.id ? "bg-cyan/15 text-cyan shadow-[0_0_18px_rgba(34,211,238,.18)]" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                {item.name}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Building2 className="size-4 text-cyan" />
+            Visualização por pavimento com máscaras dinâmicas
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div className="rounded-2xl border border-border bg-secondary/25 p-4">
             <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Zonas críticas</div>
@@ -192,21 +257,21 @@ export function OperationalFloorMap({ analytics, vavs }: { analytics: DashboardA
           </div>
           <div className="rounded-2xl border border-border bg-secondary/25 p-4">
             <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Base do mapa</div>
-            <div className="mt-2 flex items-center gap-2 font-mono text-lg text-cyan"><RadioTower className="size-4" /> A1–G1</div>
-            <div className="text-[11px] text-muted-foreground">máscaras refinadas do termográfico</div>
+            <div className="mt-2 flex items-center gap-2 font-mono text-lg text-cyan"><RadioTower className="size-4" /> {floor.shortName}</div>
+            <div className="text-[11px] text-muted-foreground">máscaras extraídas do termográfico</div>
           </div>
         </div>
 
         <div className="relative overflow-hidden rounded-3xl border border-border bg-background/50 p-3 shadow-[0_0_50px_rgba(34,211,238,.08)]">
           <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,rgba(34,211,238,.12),transparent_62%)]" />
-          <div className="relative aspect-[1668/795] overflow-hidden rounded-2xl border border-cyan/15 bg-black/35">
-            <img src={FLOOR_IMG} alt="Planta limpa do térreo Rio Design Barra" className="absolute inset-0 h-full w-full object-contain opacity-78 mix-blend-screen" />
+          <div className="relative overflow-hidden rounded-2xl border border-cyan/15 bg-black/35" style={{ aspectRatio: floor.aspect }}>
+            <img src={floor.floorImg} alt={`Planta limpa ${floor.name} Rio Design Barra`} className="absolute inset-0 h-full w-full object-contain opacity-78 mix-blend-screen" />
 
             {zones.map((zone) => {
               const style = severityStyle[zone.severity];
               return (
                 <div
-                  key={`mask-${zone.id}`}
+                  key={`mask-${floor.id}-${zone.id}`}
                   className="pointer-events-none absolute inset-0"
                   style={{
                     background: style.rgba,
@@ -224,20 +289,20 @@ export function OperationalFloorMap({ analytics, vavs }: { analytics: DashboardA
               );
             })}
 
-            <svg viewBox={VIEWBOX} className="absolute inset-0 h-full w-full" role="img" aria-label="Mapa térmico operacional do térreo">
+            <svg viewBox={floor.viewBox} className="absolute inset-0 h-full w-full" role="img" aria-label={`Mapa térmico operacional ${floor.name}`}>
               <defs>
                 <filter id="labelGlow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="4" result="blur" /><feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
               </defs>
 
-              {[303, 724, 1094, 1263].map((x) => <line key={x} x1={x} x2={x} y1="0" y2="795" stroke="rgba(125,211,252,.45)" strokeWidth="2" strokeDasharray="12 12" />)}
-              <line x1="0" x2="1668" y1="401" y2="401" stroke="rgba(125,211,252,.34)" strokeWidth="2" strokeDasharray="12 12" />
-              {["A", "B", "C", "D"].map((label, index) => <text key={label} x={[185, 505, 905, 1292][index]} y="60" fill="rgba(125,211,252,.92)" fontSize="48" fontWeight="800">{label}</text>)}
-              {["E", "F", "G", "H"].map((label, index) => <text key={label} x={[185, 505, 905, 1292][index]} y="760" fill="rgba(125,211,252,.88)" fontSize="48" fontWeight="800">{label}</text>)}
+              {floor.guide.verticals.map((x) => <line key={`v-${x}`} x1={x} x2={x} y1="0" y2="100%" stroke="rgba(125,211,252,.45)" strokeWidth="2" strokeDasharray="12 12" />)}
+              {floor.guide.horizontals.map((y) => <line key={`h-${y}`} x1="0" x2="100%" y1={y} y2={y} stroke="rgba(125,211,252,.34)" strokeWidth="2" strokeDasharray="12 12" />)}
+              {floor.guide.topLabels.map(({ label, x, y }) => <text key={`top-${label}`} x={x} y={y} fill="rgba(125,211,252,.92)" fontSize="48" fontWeight="800">{label}</text>)}
+              {floor.guide.bottomLabels.map(({ label, x, y }) => <text key={`bottom-${label}`} x={x} y={y} fill="rgba(125,211,252,.88)" fontSize="48" fontWeight="800">{label}</text>)}
 
               {zones.map((zone) => {
                 const style = severityStyle[zone.severity];
                 return (
-                  <g key={zone.id} className="group cursor-pointer" filter="url(#labelGlow)">
+                  <g key={`${floor.id}-${zone.id}`} className="group cursor-pointer" filter="url(#labelGlow)">
                     <circle cx={zone.label.x} cy={zone.label.y} r="56" fill="rgba(0,0,0,.62)" stroke={style.border} strokeWidth="2" />
                     <text x={zone.label.x} y={zone.label.y - 25} textAnchor="middle" fill="white" fontSize="30" fontWeight="800">{zone.id}</text>
                     <text x={zone.label.x} y={zone.label.y + 2} textAnchor="middle" fill={style.color} fontSize="17" fontWeight="800">{style.label}</text>
@@ -258,7 +323,7 @@ export function OperationalFloorMap({ analytics, vavs }: { analytics: DashboardA
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6 gap-3">
           {zones.map((zone) => (
-            <div key={`row-${zone.id}`} className="rounded-2xl border border-border/70 bg-secondary/20 p-3">
+            <div key={`row-${floor.id}-${zone.id}`} className="rounded-2xl border border-border/70 bg-secondary/20 p-3">
               <div className="flex items-start justify-between gap-3">
                 <div><div className="font-mono text-sm text-foreground">{zone.id}</div><div className="mt-1 text-[11px] text-muted-foreground">{zone.sensors.join(" · ")}</div></div>
                 <StatusPill severity={zone.severity} />
