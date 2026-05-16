@@ -39,12 +39,12 @@ function sp(x: number, y: number) {
 // Elas seguem os traços/limites internos do próprio supervisório, em vez de polígonos aproximados.
 // Isso evita pintar áreas internas de lojas e mantém o overlay alinhado aos corredores atendidos.
 const zoneConfigs: ZoneConfig[] = [
-  { id: "A1", title: "A1 · VAV 36", sensors: ["vav_36"], maskSrc: "/zone-masks-v11/A1.png", label: sp(220, 205) },
-  { id: "B1", title: "B1 · VAV 34 / VAV 35", sensors: ["vav_34", "vav_35"], maskSrc: "/zone-masks-v11/B1.png", label: sp(525, 204) },
-  { id: "C1", title: "C1 · VAV 32", sensors: ["vav_32"], maskSrc: "/zone-masks-v11/C1.png", label: sp(785, 145) },
-  { id: "D1", title: "D1 · VAV 30 / VAV 33", sensors: ["vav_30", "vav_33"], maskSrc: "/zone-masks-v11/D1.png", label: sp(1015, 265) },
-  { id: "F1", title: "F1 · VAV 37 / VAV 38 / VAV 39", sensors: ["vav_37", "vav_38", "vav_39"], maskSrc: "/zone-masks-v11/F1.png", label: sp(350, 374) },
-  { id: "G1", title: "G1 · VAV 31 / VAV 40", sensors: ["vav_31", "vav_40"], maskSrc: "/zone-masks-v11/G1.png", label: sp(695, 355) },
+  { id: "A1", title: "A1 · VAV 36", sensors: ["vav_36"], maskSrc: "/zone-masks-v12/A1.png", label: sp(220, 205) },
+  { id: "B1", title: "B1 · VAV 34 / VAV 35", sensors: ["vav_34", "vav_35"], maskSrc: "/zone-masks-v12/B1.png", label: sp(525, 204) },
+  { id: "C1", title: "C1 · VAV 32", sensors: ["vav_32"], maskSrc: "/zone-masks-v12/C1.png", label: sp(785, 145) },
+  { id: "D1", title: "D1 · VAV 30 / VAV 33", sensors: ["vav_30", "vav_33"], maskSrc: "/zone-masks-v12/D1.png", label: sp(1015, 265) },
+  { id: "F1", title: "F1 · VAV 37 / VAV 38 / VAV 39", sensors: ["vav_37", "vav_38", "vav_39"], maskSrc: "/zone-masks-v12/F1.png", label: sp(350, 374) },
+  { id: "G1", title: "G1 · VAV 31 / VAV 40", sensors: ["vav_31", "vav_40"], maskSrc: "/zone-masks-v12/G1.png", label: sp(695, 355) },
 ];
 
 const severityRank: Record<Severity, number> = {
@@ -177,7 +177,7 @@ export function OperationalFloorMap({ analytics, vavs }: { analytics: DashboardA
   const topZone = [...zones].sort((a, b) => b.criticalPct - a.criticalPct)[0];
 
   return (
-    <PanelCard title="Mapa operacional · Térreo" subtitle="Máscaras do termográfico real ajustadas, coloridas dinamicamente por conforto térmico" glow="primary" right={<MapPinned className="size-4 text-cyan" />}>
+    <PanelCard title="Mapa operacional · Térreo" subtitle="Máscaras do termográfico real refinadas, coloridas dinamicamente por conforto térmico" glow="primary" right={<MapPinned className="size-4 text-cyan" />}>
       <div className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div className="rounded-2xl border border-border bg-secondary/25 p-4">
@@ -193,7 +193,7 @@ export function OperationalFloorMap({ analytics, vavs }: { analytics: DashboardA
           <div className="rounded-2xl border border-border bg-secondary/25 p-4">
             <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Base do mapa</div>
             <div className="mt-2 flex items-center gap-2 font-mono text-lg text-cyan"><RadioTower className="size-4" /> A1–G1</div>
-            <div className="text-[11px] text-muted-foreground">máscaras ajustadas do termográfico</div>
+            <div className="text-[11px] text-muted-foreground">máscaras refinadas do termográfico</div>
           </div>
         </div>
 
