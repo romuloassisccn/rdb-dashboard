@@ -24,6 +24,7 @@ type FloorConfig = {
   viewBox: string;
   aspect: string;
   zones: ZoneConfig[];
+  overlayOffsetY?: number;
   guide: {
     verticals: number[];
     horizontals: number[];
@@ -84,6 +85,7 @@ const floorConfigs: FloorConfig[] = [
     floorImg: "/floor-2pav-clean.png",
     viewBox: "0 0 1668 751",
     aspect: "1668/751",
+    overlayOffsetY: 24,
     zones: [
       { id: "A2", title: "A2 · VAV 44", sensors: ["vav_44"], maskSrc: "/zone-masks-2pav/A2.png", label: { x: 255, y: 265 } },
       { id: "B2", title: "B2 · VAV 43", sensors: ["vav_43"], maskSrc: "/zone-masks-2pav/B2.png", label: { x: 800, y: 282 } },
@@ -219,6 +221,7 @@ export function OperationalFloorMap({ analytics, vavs }: { analytics: DashboardA
   const [selectedFloor, setSelectedFloor] = useState<FloorId>("terreo");
   const floor = floorConfigs.find((item) => item.id === selectedFloor) ?? floorConfigs[0];
   const zones = buildZoneStatuses(analytics, Array.isArray(vavs) ? vavs : [], floor.zones);
+  const overlayOffsetY = floor.overlayOffsetY ?? 0;
   const criticalZones = zones.filter((zone) => ["alto", "critico"].includes(zone.severity)).length;
   const topZone = [...zones].sort((a, b) => b.criticalPct - a.criticalPct)[0];
 
@@ -284,6 +287,7 @@ export function OperationalFloorMap({ analytics, vavs }: { analytics: DashboardA
                     WebkitMaskMode: "alpha",
                     maskMode: "alpha",
                     filter: `drop-shadow(${style.glow})`,
+                    transform: overlayOffsetY ? `translateY(${overlayOffsetY}px)` : undefined,
                   }}
                 />
               );
@@ -303,11 +307,11 @@ export function OperationalFloorMap({ analytics, vavs }: { analytics: DashboardA
                 const style = severityStyle[zone.severity];
                 return (
                   <g key={`${floor.id}-${zone.id}`} className="group cursor-pointer" filter="url(#labelGlow)">
-                    <circle cx={zone.label.x} cy={zone.label.y} r="56" fill="rgba(0,0,0,.62)" stroke={style.border} strokeWidth="2" />
-                    <text x={zone.label.x} y={zone.label.y - 25} textAnchor="middle" fill="white" fontSize="30" fontWeight="800">{zone.id}</text>
-                    <text x={zone.label.x} y={zone.label.y + 2} textAnchor="middle" fill={style.color} fontSize="17" fontWeight="800">{style.label}</text>
-                    <text x={zone.label.x} y={zone.label.y + 28} textAnchor="middle" fill="white" fontSize="18" fontWeight="700">{zone.maxTemp !== null ? `${zone.maxTemp.toFixed(1)} °C` : "— °C"}</text>
-                    <text x={zone.label.x} y={zone.label.y + 51} textAnchor="middle" fill="rgba(255,255,255,.76)" fontSize="15">{zone.severity === "sem_dados" ? "sem dados" : `${zone.criticalPct.toFixed(1)}% crítico`}</text>
+                    <circle cx={zone.label.x} cy={zone.label.y + overlayOffsetY} r="56" fill="rgba(0,0,0,.62)" stroke={style.border} strokeWidth="2" />
+                    <text x={zone.label.x} y={zone.label.y + overlayOffsetY - 25} textAnchor="middle" fill="white" fontSize="30" fontWeight="800">{zone.id}</text>
+                    <text x={zone.label.x} y={zone.label.y + overlayOffsetY + 2} textAnchor="middle" fill={style.color} fontSize="17" fontWeight="800">{style.label}</text>
+                    <text x={zone.label.x} y={zone.label.y + overlayOffsetY + 28} textAnchor="middle" fill="white" fontSize="18" fontWeight="700">{zone.maxTemp !== null ? `${zone.maxTemp.toFixed(1)} °C` : "— °C"}</text>
+                    <text x={zone.label.x} y={zone.label.y + overlayOffsetY + 51} textAnchor="middle" fill="rgba(255,255,255,.76)" fontSize="15">{zone.severity === "sem_dados" ? "sem dados" : `${zone.criticalPct.toFixed(1)}% crítico`}</text>
                     <title>{`${zone.title}\nSensores: ${zone.sensors.join(", ")}\nSeveridade: ${style.label}\nMáx: ${zone.maxTemp?.toFixed(1) ?? "—"} °C\n% crítico: ${zone.criticalPct.toFixed(1)}%`}</title>
                   </g>
                 );
