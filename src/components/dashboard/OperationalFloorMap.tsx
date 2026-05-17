@@ -13,6 +13,7 @@ type ZoneConfig = {
   sensors: string[];
   maskSrc: string;
   label: { x: number; y: number };
+  offsetY?: number;
 };
 
 type FloorConfig = {
@@ -87,9 +88,9 @@ const floorConfigs: FloorConfig[] = [
     aspect: "1668/751",
     overlayOffsetY: 24,
     zones: [
-      { id: "A2", title: "A2 · VAV 44", sensors: ["vav_44"], maskSrc: "/zone-masks-2pav/A2.png", label: { x: 255, y: 265 } },
-      { id: "B2", title: "B2 · VAV 43", sensors: ["vav_43"], maskSrc: "/zone-masks-2pav/B2.png", label: { x: 800, y: 282 } },
-      { id: "C2", title: "C2 · VAV 42", sensors: ["vav_42"], maskSrc: "/zone-masks-2pav/C2.png", label: { x: 1145, y: 205 } },
+      { id: "A2", title: "A2 · VAV 44", sensors: ["vav_44"], maskSrc: "/zone-masks-2pav/A2.png", label: { x: 255, y: 265 }, offsetY: -14 },
+      { id: "B2", title: "B2 · VAV 43", sensors: ["vav_43"], maskSrc: "/zone-masks-2pav/B2.png", label: { x: 800, y: 282 }, offsetY: -10 },
+      { id: "C2", title: "C2 · VAV 42", sensors: ["vav_42"], maskSrc: "/zone-masks-2pav/C2.png", label: { x: 1145, y: 205 }, offsetY: -8 },
       { id: "F2", title: "F2 · VAV 45", sensors: ["vav_45"], maskSrc: "/zone-masks-2pav/F2.png", label: { x: 530, y: 528 } },
       { id: "G2", title: "G2 · VAV 41 / VAV 46", sensors: ["vav_41", "vav_46"], maskSrc: "/zone-masks-2pav/G2.png", label: { x: 1070, y: 500 } },
     ],
@@ -217,83 +218,85 @@ function StatusPill({ severity }: { severity: Severity }) {
   );
 }
 
+
 export function OperationalFloorMap({ analytics, vavs }: { analytics: DashboardAnalytics | null; vavs: VavReading[] }) {
-  const [selectedFloor, setSelectedFloor] = useState<FloorId>("terreo");
-  const floor = floorConfigs.find((item) => item.id === selectedFloor) ?? floorConfigs[0];
-  const zones = buildZoneStatuses(analytics, Array.isArray(vavs) ? vavs : [], floor.zones);
-  const overlayOffsetY = floor.overlayOffsetY ?? 0;
-  const criticalZones = zones.filter((zone) => ["alto", "critico"].includes(zone.severity)).length;
-  const topZone = [...zones].sort((a, b) => b.criticalPct - a.criticalPct)[0];
-
   return (
-    <PanelCard title={`Mapa operacional · ${floor.name}`} subtitle={floor.subtitle} glow="primary" right={<MapPinned className="size-4 text-cyan" />}>
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="inline-flex rounded-2xl border border-border bg-secondary/25 p-1">
-            {floorConfigs.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setSelectedFloor(item.id)}
-                className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${selectedFloor === item.id ? "bg-cyan/15 text-cyan shadow-[0_0_18px_rgba(34,211,238,.18)]" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                {item.name}
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Building2 className="size-4 text-cyan" />
-            Visualização por pavimento com máscaras dinâmicas
-          </div>
-        </div>
+    <div className="space-y-8">
+      {floorConfigs.map((floor) => {
+        const zones = buildZoneStatuses(analytics, Array.isArray(vavs) ? vavs : [], floor.zones);
+        const overlayOffsetY = floor.overlayOffsetY ?? 0;
+        const criticalZones = zones.filter((zone) => ["alto", "critico"].includes(zone.severity)).length;
+        const topZone = [...zones].sort((a, b) => b.criticalPct - a.criticalPct)[0];
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="rounded-2xl border border-border bg-secondary/25 p-4">
-            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Zonas críticas</div>
-            <div className="mt-2 font-mono text-3xl font-semibold text-destructive">{criticalZones}</div>
-            <div className="text-[11px] text-muted-foreground">alta/crítica no período filtrado</div>
-          </div>
-          <div className="rounded-2xl border border-border bg-secondary/25 p-4">
-            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Pior zona</div>
-            <div className="mt-2 font-mono text-3xl font-semibold text-warning">{topZone?.id ?? "—"}</div>
-            <div className="text-[11px] text-muted-foreground">{topZone?.criticalPct.toFixed(1) ?? "—"}% crítico</div>
-          </div>
-          <div className="rounded-2xl border border-border bg-secondary/25 p-4">
-            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Base do mapa</div>
-            <div className="mt-2 flex items-center gap-2 font-mono text-lg text-cyan"><RadioTower className="size-4" /> {floor.shortName}</div>
-            <div className="text-[11px] text-muted-foreground">máscaras extraídas do termográfico</div>
-          </div>
-        </div>
+        return (
+          <PanelCard
+            key={floor.id}
+            title={`Mapa operacional · ${floor.name}`}
+            subtitle={floor.subtitle}
+            glow="primary"
+            right={<MapPinned className="size-4 text-cyan" />}
+          >
+            <div className="space-y-4">
+              <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
+                <Building2 className="size-4 text-cyan" />
+                Visualização operacional contínua por pavimento
+              </div>
 
-        <div className="relative overflow-hidden rounded-3xl border border-border bg-background/50 p-3 shadow-[0_0_50px_rgba(34,211,238,.08)]">
-          <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,rgba(34,211,238,.12),transparent_62%)]" />
-          <div className="relative overflow-hidden rounded-2xl border border-cyan/15 bg-black/35" style={{ aspectRatio: floor.aspect }}>
-            <img src={floor.floorImg} alt={`Planta limpa ${floor.name} Rio Design Barra`} className="absolute inset-0 h-full w-full object-contain opacity-78 mix-blend-screen" />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="rounded-2xl border border-border bg-secondary/25 p-4">
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Zonas críticas</div>
+                  <div className="mt-2 font-mono text-3xl font-semibold text-destructive">{criticalZones}</div>
+                  <div className="text-[11px] text-muted-foreground">alta/crítica no período filtrado</div>
+                </div>
 
-            {zones.map((zone) => {
-              const style = severityStyle[zone.severity];
-              return (
-                <div
-                  key={`mask-${floor.id}-${zone.id}`}
-                  className="pointer-events-none absolute inset-0"
-                  style={{
-                    background: style.rgba,
-                    WebkitMaskImage: `url(${zone.maskSrc})`,
-                    maskImage: `url(${zone.maskSrc})`,
-                    WebkitMaskSize: "100% 100%",
-                    maskSize: "100% 100%",
-                    WebkitMaskRepeat: "no-repeat",
-                    maskRepeat: "no-repeat",
-                    WebkitMaskMode: "alpha",
-                    maskMode: "alpha",
-                    filter: `drop-shadow(${style.glow})`,
-                    transform: overlayOffsetY ? `translateY(${overlayOffsetY}px)` : undefined,
-                  }}
-                />
-              );
-            })}
+                <div className="rounded-2xl border border-border bg-secondary/25 p-4">
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Pior zona</div>
+                  <div className="mt-2 font-mono text-3xl font-semibold text-warning">{topZone?.id ?? "—"}</div>
+                  <div className="text-[11px] text-muted-foreground">{topZone?.criticalPct.toFixed(1) ?? "—"}% crítico</div>
+                </div>
 
-            <svg viewBox={floor.viewBox} className="absolute inset-0 h-full w-full" role="img" aria-label={`Mapa térmico operacional ${floor.name}`}>
+                <div className="rounded-2xl border border-border bg-secondary/25 p-4">
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Base do mapa</div>
+                  <div className="mt-2 flex items-center gap-2 font-mono text-lg text-cyan">
+                    <RadioTower className="size-4" /> {floor.shortName}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">máscaras extraídas do termográfico</div>
+                </div>
+              </div>
+
+              <div className="relative overflow-hidden rounded-3xl border border-border bg-background/50 p-3 shadow-[0_0_50px_rgba(34,211,238,.08)]">
+                <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,rgba(34,211,238,.12),transparent_62%)]" />
+
+                <div className="relative overflow-hidden rounded-2xl border border-cyan/15 bg-black/35" style={{ aspectRatio: floor.aspect }}>
+                  <img
+                    src={floor.floorImg}
+                    alt={`Planta limpa ${floor.name} Rio Design Barra`}
+                    className="absolute inset-0 h-full w-full object-contain opacity-78 mix-blend-screen"
+                  />
+
+                  {zones.map((zone) => {
+                    const style = severityStyle[zone.severity];
+                    return (
+                      <div
+                        key={`mask-${floor.id}-${zone.id}`}
+                        className="pointer-events-none absolute inset-0"
+                        style={{
+                          background: style.rgba,
+                          WebkitMaskImage: `url(${zone.maskSrc})`,
+                          maskImage: `url(${zone.maskSrc})`,
+                          WebkitMaskSize: "100% 100%",
+                          maskSize: "100% 100%",
+                          WebkitMaskRepeat: "no-repeat",
+                          maskRepeat: "no-repeat",
+                          WebkitMaskMode: "alpha",
+                          maskMode: "alpha",
+                          filter: `drop-shadow(${style.glow})`,
+                          transform: `translateY(${overlayOffsetY + (zone.offsetY ?? 0)}px)`,
+                        }}
+                      />
+                    );
+                  })}
+<svg viewBox={floor.viewBox} className="absolute inset-0 h-full w-full" role="img" aria-label={`Mapa térmico operacional ${floor.name}`}>
               <defs>
                 <filter id="labelGlow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="4" result="blur" /><feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
               </defs>
@@ -342,5 +345,8 @@ export function OperationalFloorMap({ analytics, vavs }: { analytics: DashboardA
         </div>
       </div>
     </PanelCard>
+        );
+      })}
+    </div>
   );
 }
