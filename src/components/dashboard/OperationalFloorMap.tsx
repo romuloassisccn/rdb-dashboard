@@ -112,11 +112,11 @@ const floorConfigs: FloorConfig[] = [
     viewBox: "0 0 1668 750",
     aspect: "1668/750",
     zones: [
-      { id: "B3", title: "B3 · VAV 49", sensors: ["vav_49"], maskSrc: "/zone-masks-3pav/B3.png", label: { x: 705, y: 320 } },
-      { id: "C3", title: "C3 · VAV 48", sensors: ["vav_48"], maskSrc: "/zone-masks-3pav/C3.png", label: { x: 1190, y: 292 } },
-      { id: "E3", title: "E3 · VAV 50", sensors: ["vav_50"], maskSrc: "/zone-masks-3pav/E3.png", label: { x: 255, y: 425 } },
-      { id: "F3", title: "F3 · VAV 51", sensors: ["vav_51"], maskSrc: "/zone-masks-3pav/F3.png", label: { x: 575, y: 500 } },
-      { id: "G3", title: "G3 · VAV 52 / VAV 47", sensors: ["vav_52", "vav_47"], maskSrc: "/zone-masks-3pav/G3.png", label: { x: 1135, y: 500 } },
+      { id: "B3", title: "B3 · VAV 49", sensors: ["vav_49"], maskSrc: "/zone-masks-3pav/B3.png", label: { x: 710, y: 310 } },
+      { id: "C3", title: "C3 · VAV 48", sensors: ["vav_48"], maskSrc: "/zone-masks-3pav/C3.png", label: { x: 1180, y: 285 } },
+      { id: "E3", title: "E3 · VAV 50", sensors: ["vav_50"], maskSrc: "/zone-masks-3pav/E3.png", label: { x: 245, y: 410 } },
+      { id: "F3", title: "F3 · VAV 51", sensors: ["vav_51"], maskSrc: "/zone-masks-3pav/F3.png", label: { x: 570, y: 470 } },
+      { id: "G3", title: "G3 · VAV 52 / VAV 47", sensors: ["vav_52", "vav_47"], maskSrc: "/zone-masks-3pav/G3.png", label: { x: 1130, y: 455 } },
     ],
     guide: {
       verticals: [410, 835, 1250],
