@@ -266,13 +266,20 @@ function round(value: number | null, digits = 2): number | null {
   return value === null || !Number.isFinite(value) ? null : Number(value.toFixed(digits));
 }
 
+function isChillerOn(point: Record<string, unknown>, ur: 1 | 2 | 3): boolean {
+  const kw = toNum(point[`kw_ur${ur}`]);
+  return kw !== null && kw > 10;
+}
+
 function calcTrValue(point: Record<string, unknown>, ur: 1 | 2 | 3): number | null {
+  if (!isChillerOn(point, ur)) return null;
+
   const tr = toNum(point[`tr_ur${ur}`]);
   if (tr !== null && tr > 0) return tr;
 
   const kw = toNum(point[`kw_ur${ur}`]);
   const kwtr = toNum(point[`kwtr_ur${ur}`]);
-  if (kw !== null && kw > 0 && kwtr !== null && kwtr > 0) return kw / kwtr;
+  if (kw !== null && kw > 10 && kwtr !== null && kwtr > 0) return kw / kwtr;
 
   return null;
 }
@@ -481,10 +488,11 @@ function buildCo2AnalyticsFromRows(rows: RawTimedRow[]) {
 }
 
 function buildFallbackAnalytics(series: ChillerPoint[], vavs: VavReading[], co2: Co2Reading[], vavRows: RawTimedRow[] = [], co2Rows: RawTimedRow[] = []): DashboardAnalytics {
-  const kwtrValues = series.map((p) => toNum((p as unknown as Record<string, unknown>).kw_tr_cag)).filter((v): v is number => v !== null && v > 0);
+  const activeRows = series.filter((p) => ([1, 2, 3] as const).some((ur) => isChillerOn(p as unknown as Record<string, unknown>, ur)));
+  const kwtrValues = activeRows.map((p) => toNum((p as unknown as Record<string, unknown>).kw_tr_cag)).filter((v): v is number => v !== null && v > 0);
   const kwTrMedio = round(avg(kwtrValues), 2);
 
-  const powerTotals = series.map((p) => [p.kw_ur1, p.kw_ur2, p.kw_ur3].map(toNum).filter((v): v is number => v !== null && v > 0).reduce((sum, value) => sum + value, 0)).filter((v) => v > 0);
+  const powerTotals = series.map((p) => [p.kw_ur1, p.kw_ur2, p.kw_ur3].map(toNum).filter((v): v is number => v !== null && v > 10).reduce((sum, value) => sum + value, 0)).filter((v) => v > 0);
   const trTotals = series.map((p) => ([1, 2, 3] as const).map((ur) => calcTrValue(p as unknown as Record<string, unknown>, ur)).filter((v): v is number => v !== null && v > 0).reduce((sum, value) => sum + value, 0)).filter((v) => v > 0);
   const intervalH = 0.25;
 
@@ -543,9 +551,11 @@ function buildFallbackAnalytics(series: ChillerPoint[], vavs: VavReading[], co2:
   for (const p of series) {
     const key = dateKeyUtc(p.t);
     const current = byDay.get(key) ?? { kwtr: [], energia: 0, trh: 0 };
-    const kwtr = toNum((p as unknown as Record<string, unknown>).kw_tr_cag);
-    if (kwtr !== null && kwtr > 0) current.kwtr.push(kwtr);
-    const kw = [p.kw_ur1, p.kw_ur2, p.kw_ur3].map(toNum).filter((v): v is number => v !== null && v > 0).reduce((sum, value) => sum + value, 0);
+    const row = p as unknown as Record<string, unknown>;
+    const hasActiveChiller = ([1, 2, 3] as const).some((ur) => isChillerOn(row, ur));
+    const kwtr = toNum(row.kw_tr_cag);
+    if (hasActiveChiller && kwtr !== null && kwtr > 0) current.kwtr.push(kwtr);
+    const kw = [p.kw_ur1, p.kw_ur2, p.kw_ur3].map(toNum).filter((v): v is number => v !== null && v > 10).reduce((sum, value) => sum + value, 0);
     const tr = ([1, 2, 3] as const).map((ur) => calcTrValue(p as unknown as Record<string, unknown>, ur)).filter((v): v is number => v !== null && v > 0).reduce((sum, value) => sum + value, 0);
     current.energia += kw * intervalH;
     current.trh += tr * intervalH;
@@ -579,10 +589,7 @@ function buildFallbackAnalytics(series: ChillerPoint[], vavs: VavReading[], co2:
   const chiller = ([1, 2, 3] as const).map((ur) => {
     const rows = series.filter((p) => {
       const row = p as unknown as Record<string, unknown>;
-      const kw = toNum(row[`kw_ur${ur}`]);
-      const tr = calcTrValue(row, ur);
-      const kwtr = toNum(row[`kwtr_ur${ur}`]);
-      return (kw !== null && kw > 10) || (tr !== null && tr > 5) || (kwtr !== null && kwtr > 0);
+      return isChillerOn(row, ur);
     });
     const horas = rows.length * intervalH;
     const kwtr = rows.map((p) => toNum((p as unknown as Record<string, unknown>)[`kwtr_ur${ur}`])).filter((v): v is number => v !== null && v > 0);

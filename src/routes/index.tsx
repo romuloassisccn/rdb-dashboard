@@ -42,13 +42,20 @@ export const Route = createFileRoute("/")({
 
 type ChillerDelta = { unit: string; ag: number | null; ac: number | null };
 
+function isChillerOn(point: ChillerPoint, ur: 1 | 2 | 3): boolean {
+  const kw = point[`kw_ur${ur}` as keyof ChillerPoint];
+  return isNum(kw) && Number(kw) > 10;
+}
+
 function calcTrValue(point: ChillerPoint, ur: 1 | 2 | 3): number | null {
+  if (!isChillerOn(point, ur)) return null;
+
   const tr = point[`tr_ur${ur}` as keyof ChillerPoint];
   if (isNum(tr) && tr > 0) return Number(tr);
 
   const kw = point[`kw_ur${ur}` as keyof ChillerPoint];
   const kwtr = point[`kwtr_ur${ur}` as keyof ChillerPoint];
-  if (isNum(kw) && kw > 0 && isNum(kwtr) && kwtr > 0) {
+  if (isNum(kw) && kw > 10 && isNum(kwtr) && kwtr > 0) {
     return Number(kw) / Number(kwtr);
   }
 
@@ -93,15 +100,21 @@ function Dashboard() {
     const pick = (sel: (d: typeof series[number]) => unknown, predicate: (v: number) => boolean) =>
       series.map(sel).filter((v): v is number => isNum(v) && predicate(v));
 
-    const kwAvg = avgSafe(pick((d) => d.kw_ur1, (v) => v >= 10).concat(pick((d) => d.kw_ur2, (v) => v >= 10), pick((d) => d.kw_ur3, (v) => v >= 10)));
+    const kwAvg = avgSafe(pick((d) => d.kw_ur1, (v) => v > 10).concat(pick((d) => d.kw_ur2, (v) => v > 10), pick((d) => d.kw_ur3, (v) => v > 10)));
     const kwLast = last
-      ? avgSafe([last.kw_ur1, last.kw_ur2, last.kw_ur3].filter((v) => isNum(v) && v >= 10))
+      ? avgSafe([last.kw_ur1, last.kw_ur2, last.kw_ur3].filter((v) => isNum(v) && v > 10))
       : null;
 
-    const kwtrAvg = avgSafe(pick((d) => d.kwtr_ur1, (v) => v > 0 && v <= 4).concat(pick((d) => d.kwtr_ur2, (v) => v > 0 && v <= 4), pick((d) => d.kwtr_ur3, (v) => v > 0 && v <= 4)));
+    const kwtrAvg = avgSafe(([1, 2, 3] as const).flatMap((ur) =>
+      series
+        .filter((d) => isChillerOn(d, ur))
+        .map((d) => d[`kwtr_ur${ur}` as keyof ChillerPoint])
+        .filter((v): v is number => isNum(v) && v > 0 && v <= 4)
+    ));
 
-    const cagAvg = avgSafe(pick((d) => d.kw_tr_cag, (v) => v > 0));
-    const cagLast = last && isNum(last.kw_tr_cag) ? last.kw_tr_cag : null;
+    const activeRows = series.filter((d) => ([1, 2, 3] as const).some((ur) => isChillerOn(d, ur)));
+    const cagAvg = avgSafe(activeRows.map((d) => d.kw_tr_cag).filter((v): v is number => isNum(v) && v > 0));
+    const cagLast = last && ([1, 2, 3] as const).some((ur) => isChillerOn(last, ur)) && isNum(last.kw_tr_cag) ? last.kw_tr_cag : null;
 
     const oatValid = series.filter((d) => isNum(d.oat) && d.oat !== 0 && d.oat <= 60);
     const oatValues = oatValid.map((d) => d.oat);
@@ -123,8 +136,8 @@ function Dashboard() {
       kwtrAvg,
       cagAvg, cagLast,
       oatMin, oatMax, oatAvg, oatNow,
-      trendKw: trend((d) => ((isNum(d.kw_ur1) ? d.kw_ur1 : 0) + (isNum(d.kw_ur2) ? d.kw_ur2 : 0) + (isNum(d.kw_ur3) ? d.kw_ur3 : 0)) / 3),
-      trendKwTr: trend((d) => d.kw_tr_cag),
+      trendKw: trend((d) => avgSafe([d.kw_ur1, d.kw_ur2, d.kw_ur3].filter((v): v is number => isNum(v) && v > 10))),
+      trendKwTr: trend((d) => ([1, 2, 3] as const).some((ur) => isChillerOn(d, ur)) ? d.kw_tr_cag : null),
     };
   }, [series]);
 
@@ -149,7 +162,8 @@ function Dashboard() {
     const co2Trend = avg(validCo2.map((sensor) => sensor.trend).filter(isNum));
 
     const kwTrTarget = 0.88;
-    const kwTrAvg = avg(series.map((point) => point.kw_tr_cag).filter((value): value is number => isNum(value) && value > 0));
+    const activeChillerRows = series.filter((point) => ([1, 2, 3] as const).some((ur) => isChillerOn(point, ur)));
+    const kwTrAvg = avg(activeChillerRows.map((point) => point.kw_tr_cag).filter((value): value is number => isNum(value) && value > 0));
     const kwTrDelta = isNum(kwTrAvg) ? kwTrAvg - kwTrTarget : null;
 
     const trTotals = series
@@ -162,7 +176,7 @@ function Dashboard() {
 
     const powerTotals = series
       .map((point) => [point.kw_ur1, point.kw_ur2, point.kw_ur3]
-        .filter((value): value is number => isNum(value) && value > 0)
+        .filter((value): value is number => isNum(value) && value > 10)
         .reduce((sum, value) => sum + value, 0))
       .filter((value) => value > 0);
     const powerAvg = avg(powerTotals);
@@ -184,7 +198,7 @@ function Dashboard() {
       return isNum(recentAvg) && isNum(previousAvg) ? recentAvg - previousAvg : null;
     };
 
-    const kwTrTrend = trendBySeries((point) => point.kw_tr_cag);
+    const kwTrTrend = trendBySeries((point) => ([1, 2, 3] as const).some((ur) => isChillerOn(point, ur)) ? point.kw_tr_cag : null);
     const trTrend = trendBySeries((point) => {
       const total = ([1, 2, 3] as const)
         .map((ur) => calcTrValue(point, ur))
@@ -195,7 +209,7 @@ function Dashboard() {
 
     const powerTrend = trendBySeries((point) => {
       const total = [point.kw_ur1, point.kw_ur2, point.kw_ur3]
-        .filter((value): value is number => isNum(value) && value > 0)
+        .filter((value): value is number => isNum(value) && value > 10)
         .reduce((sum, value) => sum + value, 0);
       return total > 0 ? total : null;
     });
@@ -220,13 +234,14 @@ function Dashboard() {
 
   const chillerDeltaStats = useMemo<ChillerDelta[]>(() => {
     const units = [
-      { unit: "UR1", kwtr: "kwtr_ur1", ewt: "ewt_ur1", lwt: "lwt_ur1", ect: "ect_ur1", lct: "lct_ur1" },
-      { unit: "UR2", kwtr: "kwtr_ur2", ewt: "ewt_ur2", lwt: "lwt_ur2", ect: "ect_ur2", lct: "lct_ur2" },
-      { unit: "UR3", kwtr: "kwtr_ur3", ewt: "ewt_ur3", lwt: "lwt_ur3", ect: "ect_ur3", lct: "lct_ur3" },
+      { ur: 1, unit: "UR1", ewt: "ewt_ur1", lwt: "lwt_ur1", ect: "ect_ur1", lct: "lct_ur1" },
+      { ur: 2, unit: "UR2", ewt: "ewt_ur2", lwt: "lwt_ur2", ect: "ect_ur2", lct: "lct_ur2" },
+      { ur: 3, unit: "UR3", ewt: "ewt_ur3", lwt: "lwt_ur3", ect: "ect_ur3", lct: "lct_ur3" },
     ] as const;
 
     const deltaAvg = (unit: typeof units[number], mode: "ag" | "ac") => {
       const values = series
+        .filter((point) => isChillerOn(point, unit.ur))
         .map((point) => {
           const enter = point[(mode === "ag" ? unit.ewt : unit.ect) as keyof ChillerPoint];
           const leave = point[(mode === "ag" ? unit.lwt : unit.lct) as keyof ChillerPoint];

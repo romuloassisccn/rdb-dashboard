@@ -123,13 +123,20 @@ function seriesHasAny(rows: Array<Record<string, unknown>>, key: string): boolea
   return rows.some((r) => isNum(r[key]));
 }
 
+function isChillerOn(d: ChillerPoint, ur: 1 | 2 | 3): boolean {
+  const kw = num(d[`kw_ur${ur}` as keyof ChillerPoint]);
+  return isNum(kw) && kw > 10;
+}
+
 function calcTrValue(d: ChillerPoint, ur: 1 | 2 | 3): number | null {
+  if (!isChillerOn(d, ur)) return null;
+
   const tr = num(d[`tr_ur${ur}` as keyof ChillerPoint]);
   if (isNum(tr) && tr > 0) return tr;
 
   const kw = num(d[`kw_ur${ur}` as keyof ChillerPoint]);
   const kwtr = num(d[`kwtr_ur${ur}` as keyof ChillerPoint]);
-  if (isNum(kw) && kw > 0 && isNum(kwtr) && kwtr > 0) return kw / kwtr;
+  if (isNum(kw) && kw > 10 && isNum(kwtr) && kwtr > 0) return kw / kwtr;
 
   return null;
 }
@@ -138,12 +145,12 @@ export function ChilledWaterChart({ data, period }: { data: ChillerPoint[]; peri
   const { hidden, toggle, legendStyle } = useHidden();
   const timeAxis = makeTimeAxis(data, period);
   const cleaned = buildSeries(data, (d) => ({
-    "EWT UR1": num(d.ewt_ur1) && d.ewt_ur1 > 0 ? num(d.ewt_ur1) : null,
-    "LWT UR1": num(d.lwt_ur1) && d.lwt_ur1 > 0 ? num(d.lwt_ur1) : null,
-    "EWT UR2": num(d.ewt_ur2) && d.ewt_ur2 > 0 ? num(d.ewt_ur2) : null,
-    "LWT UR2": num(d.lwt_ur2) && d.lwt_ur2 > 0 ? num(d.lwt_ur2) : null,
-    "EWT UR3": num(d.ewt_ur3) && d.ewt_ur3 > 0 ? num(d.ewt_ur3) : null,
-    "LWT UR3": num(d.lwt_ur3) && d.lwt_ur3 > 0 ? num(d.lwt_ur3) : null,
+    "EWT UR1": isChillerOn(d, 1) && num(d.ewt_ur1) && d.ewt_ur1 > 0 ? num(d.ewt_ur1) : null,
+    "LWT UR1": isChillerOn(d, 1) && num(d.lwt_ur1) && d.lwt_ur1 > 0 ? num(d.lwt_ur1) : null,
+    "EWT UR2": isChillerOn(d, 2) && num(d.ewt_ur2) && d.ewt_ur2 > 0 ? num(d.ewt_ur2) : null,
+    "LWT UR2": isChillerOn(d, 2) && num(d.lwt_ur2) && d.lwt_ur2 > 0 ? num(d.lwt_ur2) : null,
+    "EWT UR3": isChillerOn(d, 3) && num(d.ewt_ur3) && d.ewt_ur3 > 0 ? num(d.ewt_ur3) : null,
+    "LWT UR3": isChillerOn(d, 3) && num(d.lwt_ur3) && d.lwt_ur3 > 0 ? num(d.lwt_ur3) : null,
   }));
 
   const colors = ["var(--chart-1)", "var(--chart-3)", "var(--chart-2)"];
@@ -179,12 +186,12 @@ export function CondenserWaterChart({ data, period }: { data: ChillerPoint[]; pe
   const { hidden, toggle, legendStyle } = useHidden();
   const timeAxis = makeTimeAxis(data, period);
   const cleaned = buildSeries(data, (d) => ({
-    "ECT UR1": num(d.ect_ur1) && d.ect_ur1 > 0 ? num(d.ect_ur1) : null,
-    "LCT UR1": num(d.lct_ur1) && d.lct_ur1 > 0 ? num(d.lct_ur1) : null,
-    "ECT UR2": num(d.ect_ur2) && d.ect_ur2 > 0 ? num(d.ect_ur2) : null,
-    "LCT UR2": num(d.lct_ur2) && d.lct_ur2 > 0 ? num(d.lct_ur2) : null,
-    "ECT UR3": num(d.ect_ur3) && d.ect_ur3 > 0 ? num(d.ect_ur3) : null,
-    "LCT UR3": num(d.lct_ur3) && d.lct_ur3 > 0 ? num(d.lct_ur3) : null,
+    "ECT UR1": isChillerOn(d, 1) && num(d.ect_ur1) && d.ect_ur1 > 0 ? num(d.ect_ur1) : null,
+    "LCT UR1": isChillerOn(d, 1) && num(d.lct_ur1) && d.lct_ur1 > 0 ? num(d.lct_ur1) : null,
+    "ECT UR2": isChillerOn(d, 2) && num(d.ect_ur2) && d.ect_ur2 > 0 ? num(d.ect_ur2) : null,
+    "LCT UR2": isChillerOn(d, 2) && num(d.lct_ur2) && d.lct_ur2 > 0 ? num(d.lct_ur2) : null,
+    "ECT UR3": isChillerOn(d, 3) && num(d.ect_ur3) && d.ect_ur3 > 0 ? num(d.ect_ur3) : null,
+    "LCT UR3": isChillerOn(d, 3) && num(d.lct_ur3) && d.lct_ur3 > 0 ? num(d.lct_ur3) : null,
   }));
   const colors = ["var(--chart-1)", "var(--chart-3)", "var(--chart-2)"];
   const units = (["UR1", "UR2", "UR3"] as const).filter(
@@ -291,7 +298,7 @@ export function KwtrVsTrScatter({ data }: { data: ChillerPoint[] }) {
   const safe = Array.isArray(data) ? data : [];
   const series = (ur: 1 | 2 | 3, kwtrKey: "kwtr_ur1" | "kwtr_ur2" | "kwtr_ur3") =>
     safe
-      .filter((d) => d && isNum(d[kwtrKey]) && d[kwtrKey] > 0 && d[kwtrKey] <= 4 && isNum(calcTrValue(d, ur)) && Number(calcTrValue(d, ur)) > 0)
+      .filter((d) => d && isChillerOn(d, ur) && isNum(d[kwtrKey]) && d[kwtrKey] > 0 && d[kwtrKey] <= 4 && isNum(calcTrValue(d, ur)) && Number(calcTrValue(d, ur)) > 0)
       .map((d) => ({ x: Number(calcTrValue(d, ur)), y: d[kwtrKey] }));
 
   const cfg = [
@@ -336,15 +343,15 @@ export function KwtrVsTrScatter({ data }: { data: ChillerPoint[] }) {
 export function EfficiencyScatter({ data }: { data: ChillerPoint[] }) {
   const { hidden, toggle, legendStyle } = useHidden();
   const safe = Array.isArray(data) ? data : [];
-  const series = (key: "kwtr_ur1" | "kwtr_ur2" | "kwtr_ur3") =>
+  const series = (ur: 1 | 2 | 3, key: "kwtr_ur1" | "kwtr_ur2" | "kwtr_ur3") =>
     safe
-      .filter((d) => d && isNum(d[key]) && d[key] > 0 && d[key] <= 4 && isNum(d.oat) && d.oat > 0 && d.oat <= 60)
+      .filter((d) => d && isChillerOn(d, ur) && isNum(d[key]) && d[key] > 0 && d[key] <= 4 && isNum(d.oat) && d.oat > 0 && d.oat <= 60)
       .map((d) => ({ x: d.oat, y: d[key] }));
 
   const cfg = [
-    { name: "Chiller UR1", data: series("kwtr_ur1"), color: "var(--chart-1)" },
-    { name: "Chiller UR2", data: series("kwtr_ur2"), color: "var(--chart-3)" },
-    { name: "Chiller UR3", data: series("kwtr_ur3"), color: "var(--chart-2)" },
+    { name: "Chiller UR1", data: series(1, "kwtr_ur1"), color: "var(--chart-1)" },
+    { name: "Chiller UR2", data: series(2, "kwtr_ur2"), color: "var(--chart-3)" },
+    { name: "Chiller UR3", data: series(3, "kwtr_ur3"), color: "var(--chart-2)" },
   ].filter((s) => s.data.length > 0);
 
   if (cfg.length === 0) return <EmptyState height={280} />;
