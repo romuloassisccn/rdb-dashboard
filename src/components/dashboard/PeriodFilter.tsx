@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 const opts: { id: Period; label: string }[] = [
   { id: "ontem", label: "Ontem" },
   { id: "7d", label: "7 dias" },
-  { id: "30d", label: "30 dias" },
+  { id: "30d", label: "1 mês" },
 ];
 
 export function PeriodFilter({ value, onChange }: { value: Period; onChange: (p: Period) => void }) {

@@ -266,6 +266,17 @@ function round(value: number | null, digits = 2): number | null {
   return value === null || !Number.isFinite(value) ? null : Number(value.toFixed(digits));
 }
 
+function calcTrValue(point: Record<string, unknown>, ur: 1 | 2 | 3): number | null {
+  const tr = toNum(point[`tr_ur${ur}`]);
+  if (tr !== null && tr > 0) return tr;
+
+  const kw = toNum(point[`kw_ur${ur}`]);
+  const kwtr = toNum(point[`kwtr_ur${ur}`]);
+  if (kw !== null && kw > 0 && kwtr !== null && kwtr > 0) return kw / kwtr;
+
+  return null;
+}
+
 function scoreEficiencia(kwTr: number | null): number | null {
   if (kwTr === null) return null;
   if (kwTr <= 0.88) return 100;
@@ -474,7 +485,7 @@ function buildFallbackAnalytics(series: ChillerPoint[], vavs: VavReading[], co2:
   const kwTrMedio = round(avg(kwtrValues), 2);
 
   const powerTotals = series.map((p) => [p.kw_ur1, p.kw_ur2, p.kw_ur3].map(toNum).filter((v): v is number => v !== null && v > 0).reduce((sum, value) => sum + value, 0)).filter((v) => v > 0);
-  const trTotals = series.map((p) => [p.tr_ur1, p.tr_ur2, p.tr_ur3].map(toNum).filter((v): v is number => v !== null && v > 0).reduce((sum, value) => sum + value, 0)).filter((v) => v > 0);
+  const trTotals = series.map((p) => ([1, 2, 3] as const).map((ur) => calcTrValue(p as unknown as Record<string, unknown>, ur)).filter((v): v is number => v !== null && v > 0).reduce((sum, value) => sum + value, 0)).filter((v) => v > 0);
   const intervalH = 0.25;
 
   const energiaTotalKwh = powerTotals.reduce((sum, value) => sum + value * intervalH, 0);
@@ -535,7 +546,7 @@ function buildFallbackAnalytics(series: ChillerPoint[], vavs: VavReading[], co2:
     const kwtr = toNum((p as unknown as Record<string, unknown>).kw_tr_cag);
     if (kwtr !== null && kwtr > 0) current.kwtr.push(kwtr);
     const kw = [p.kw_ur1, p.kw_ur2, p.kw_ur3].map(toNum).filter((v): v is number => v !== null && v > 0).reduce((sum, value) => sum + value, 0);
-    const tr = [p.tr_ur1, p.tr_ur2, p.tr_ur3].map(toNum).filter((v): v is number => v !== null && v > 0).reduce((sum, value) => sum + value, 0);
+    const tr = ([1, 2, 3] as const).map((ur) => calcTrValue(p as unknown as Record<string, unknown>, ur)).filter((v): v is number => v !== null && v > 0).reduce((sum, value) => sum + value, 0);
     current.energia += kw * intervalH;
     current.trh += tr * intervalH;
     byDay.set(key, current);
@@ -565,23 +576,28 @@ function buildFallbackAnalytics(series: ChillerPoint[], vavs: VavReading[], co2:
     };
   });
 
-  const chiller = [1, 2, 3].map((ur) => {
+  const chiller = ([1, 2, 3] as const).map((ur) => {
     const rows = series.filter((p) => {
-      const kw = toNum((p as unknown as Record<string, unknown>)[`kw_ur${ur}`]);
-      const tr = toNum((p as unknown as Record<string, unknown>)[`tr_ur${ur}`]);
-      const kwtr = toNum((p as unknown as Record<string, unknown>)[`kwtr_ur${ur}`]);
+      const row = p as unknown as Record<string, unknown>;
+      const kw = toNum(row[`kw_ur${ur}`]);
+      const tr = calcTrValue(row, ur);
+      const kwtr = toNum(row[`kwtr_ur${ur}`]);
       return (kw !== null && kw > 10) || (tr !== null && tr > 5) || (kwtr !== null && kwtr > 0);
     });
     const horas = rows.length * intervalH;
     const kwtr = rows.map((p) => toNum((p as unknown as Record<string, unknown>)[`kwtr_ur${ur}`])).filter((v): v is number => v !== null && v > 0);
+    const trValues = rows.map((p) => calcTrValue(p as unknown as Record<string, unknown>, ur)).filter((v): v is number => v !== null && v > 0);
     const avgKwtr = avg(kwtr);
+    const avgTr = avg(trValues);
+    const maxTr = trValues.length ? Math.max(...trValues) : null;
+    const capacidadeMedia = avgTr !== null && maxTr !== null && maxTr > 0 ? (avgTr / maxTr) * 100 : null;
     const score = horas < 5 ? null : Math.max(0, Math.round(100 - (avgKwtr && avgKwtr > 0.88 ? 15 : 0)));
     return {
       ur: `UR${ur}`,
       horasValidas: round(horas, 1),
-      capacidadeMedia: null,
+      capacidadeMedia: round(capacidadeMedia, 1),
       kwTrMedio: round(avgKwtr, 2),
-      estabilidade: "sem_dados",
+      estabilidade: trValues.length > 4 ? "calculada" : "sem_dados",
       score,
       classificacao: horas < 5 ? "amostra_insuficiente" : classificarScore(score),
       amostraInsuficiente: horas < 5,
@@ -657,12 +673,16 @@ function mergeDashboardAnalytics(fallback: DashboardAnalytics, backend: Dashboar
   };
 }
 
-async function fetchCagData(period: Period): Promise<CagPayload> {
+async function requestRawPayload(period: Period, options: { includePeriodParams: boolean; days?: number }): Promise<RawPayload> {
   const url = new URL(ENDPOINT);
-  url.searchParams.set("period", period);
-  url.searchParams.set("range", period);
-  url.searchParams.set("periodo", period);
-  url.searchParams.set("days", String(periodDays(period)));
+
+  if (options.includePeriodParams) {
+    url.searchParams.set("period", period);
+    url.searchParams.set("range", period);
+    url.searchParams.set("periodo", period);
+  }
+
+  url.searchParams.set("days", String(options.days ?? periodDays(period)));
   url.searchParams.set("_", String(Date.now()));
 
   const res = await fetch(url.toString(), {
@@ -677,7 +697,38 @@ async function fetchCagData(period: Period): Promise<CagPayload> {
 
   const json = await res.json().catch(() => ({}));
   const raw = Array.isArray(json) ? (json[0] ?? {}) : json;
-  const data: RawPayload = raw.json ?? raw;
+  return raw.json ?? raw;
+}
+
+function rawPayloadHasRows(data: RawPayload): boolean {
+  return Boolean(
+    (Array.isArray(data?.series) && data.series.length > 0)
+      || (Array.isArray(data?.vavs) && data.vavs.length > 0)
+      || (Array.isArray(data?.co2) && data.co2.length > 0)
+      || (Array.isArray(data?.cagStatus) && data.cagStatus.length > 0)
+      || (Array.isArray(data?.cag_status) && data.cag_status.length > 0),
+  );
+}
+
+async function loadRawPayload(period: Period): Promise<RawPayload> {
+  const primary = await requestRawPayload(period, { includePeriodParams: true });
+
+  // O webhook pode retornar vazio para 30d quando ainda não existe uma janela
+  // completa de 30 dias. Nesse caso, buscamos a base sem o filtro textual de
+  // período e deixamos o frontend aplicar a regra: mostrar tudo que existir
+  // dentro dos últimos 30 dias relativos ao último timestamp disponível.
+  if (rawPayloadHasRows(primary)) return primary;
+
+  if (period === "30d" || period === "7d") {
+    const fallback = await requestRawPayload(period, { includePeriodParams: false, days: periodDays(period) });
+    if (rawPayloadHasRows(fallback)) return fallback;
+  }
+
+  return primary;
+}
+
+async function fetchCagData(period: Period): Promise<CagPayload> {
+  const data = await loadRawPayload(period);
 
   const allSeries = normalizeSeries(Array.isArray(data?.series) ? data.series : []);
   const filteredSeries = filterSeriesByPeriod(allSeries, period);
@@ -698,8 +749,7 @@ async function fetchCagData(period: Period): Promise<CagPayload> {
   const allCagStatus = normalizeTimedRows(rawCagStatus);
   const cagStatus = filterRowsByPeriod(allCagStatus, period);
 
-  const fallbackAnalytics = buildFallbackAnalytics(filteredSeries, vavs, co2, filteredVavRows, filteredCo2Rows);
-  const analytics = mergeDashboardAnalytics(fallbackAnalytics, data?.analytics ?? null);
+  const analytics = buildFallbackAnalytics(filteredSeries, vavs, co2, filteredVavRows, filteredCo2Rows);
 
   return {
     series: filteredSeries,

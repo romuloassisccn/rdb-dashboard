@@ -42,6 +42,19 @@ export const Route = createFileRoute("/")({
 
 type ChillerDelta = { unit: string; ag: number | null; ac: number | null };
 
+function calcTrValue(point: ChillerPoint, ur: 1 | 2 | 3): number | null {
+  const tr = point[`tr_ur${ur}` as keyof ChillerPoint];
+  if (isNum(tr) && tr > 0) return Number(tr);
+
+  const kw = point[`kw_ur${ur}` as keyof ChillerPoint];
+  const kwtr = point[`kwtr_ur${ur}` as keyof ChillerPoint];
+  if (isNum(kw) && kw > 0 && isNum(kwtr) && kwtr > 0) {
+    return Number(kw) / Number(kwtr);
+  }
+
+  return null;
+}
+
 function DeltaBadges({ values, type }: { values: ChillerDelta[]; type: "ag" | "ac" }) {
   const label = type === "ag" ? "ΔT AG" : "ΔT AC";
   const visible = values.filter((item) => isNum(item[type]));
@@ -139,17 +152,9 @@ function Dashboard() {
     const kwTrAvg = avg(series.map((point) => point.kw_tr_cag).filter((value): value is number => isNum(value) && value > 0));
     const kwTrDelta = isNum(kwTrAvg) ? kwTrAvg - kwTrTarget : null;
 
-
-    const getTr = (point: typeof series[number], ur: 1 | 2 | 3) => {
-      const direct = point[`tr_ur${ur}` as keyof ChillerPoint];
-      if (isNum(direct) && direct > 0) return direct;
-      const kw = point[`kw_ur${ur}` as keyof ChillerPoint];
-      const kwtr = point[`kwtr_ur${ur}` as keyof ChillerPoint];
-      if (isNum(kw) && kw > 0 && isNum(kwtr) && kwtr > 0 && kwtr <= 4) return kw / kwtr;
-      return null;
-    };
     const trTotals = series
-      .map((point) => [getTr(point, 1), getTr(point, 2), getTr(point, 3)]
+      .map((point) => ([1, 2, 3] as const)
+        .map((ur) => calcTrValue(point, ur))
         .filter((value): value is number => isNum(value) && value > 0)
         .reduce((sum, value) => sum + value, 0))
       .filter((value) => value > 0);
@@ -181,7 +186,8 @@ function Dashboard() {
 
     const kwTrTrend = trendBySeries((point) => point.kw_tr_cag);
     const trTrend = trendBySeries((point) => {
-      const total = [getTr(point, 1), getTr(point, 2), getTr(point, 3)]
+      const total = ([1, 2, 3] as const)
+        .map((ur) => calcTrValue(point, ur))
         .filter((value): value is number => isNum(value) && value > 0)
         .reduce((sum, value) => sum + value, 0);
       return total > 0 ? total : null;
@@ -224,7 +230,7 @@ function Dashboard() {
         .map((point) => {
           const enter = point[(mode === "ag" ? unit.ewt : unit.ect) as keyof ChillerPoint];
           const leave = point[(mode === "ag" ? unit.lwt : unit.lct) as keyof ChillerPoint];
-          return isNum(enter) && isNum(leave) ? (mode === "ag" ? enter - leave : leave - enter) : null;
+          return isNum(enter) && isNum(leave) ? (mode === "ag" ? Number(enter) - Number(leave) : Number(leave) - Number(enter)) : null;
         })
         .filter((value): value is number => isNum(value) && value > 0 && value < 30);
 

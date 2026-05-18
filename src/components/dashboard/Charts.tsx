@@ -123,17 +123,13 @@ function seriesHasAny(rows: Array<Record<string, unknown>>, key: string): boolea
   return rows.some((r) => isNum(r[key]));
 }
 
-function positive(value: unknown): number | null {
-  return isNum(value) && value > 0 ? value : null;
-}
+function calcTrValue(d: ChillerPoint, ur: 1 | 2 | 3): number | null {
+  const tr = num(d[`tr_ur${ur}` as keyof ChillerPoint]);
+  if (isNum(tr) && tr > 0) return tr;
 
-function derivedTr(point: ChillerPoint, ur: 1 | 2 | 3): number | null {
-  const direct = positive(point[`tr_ur${ur}` as keyof ChillerPoint]);
-  if (direct !== null) return direct;
-
-  const kw = positive(point[`kw_ur${ur}` as keyof ChillerPoint]);
-  const kwtr = positive(point[`kwtr_ur${ur}` as keyof ChillerPoint]);
-  if (kw !== null && kwtr !== null && kwtr <= 4) return kw / kwtr;
+  const kw = num(d[`kw_ur${ur}` as keyof ChillerPoint]);
+  const kwtr = num(d[`kwtr_ur${ur}` as keyof ChillerPoint]);
+  if (isNum(kw) && kw > 0 && isNum(kwtr) && kwtr > 0) return kw / kwtr;
 
   return null;
 }
@@ -223,9 +219,9 @@ export function TrChart({ data, period }: { data: ChillerPoint[]; period: Period
   const { hidden, toggle, legendStyle } = useHidden();
   const timeAxis = makeTimeAxis(data, period);
   const cleaned = buildSeries(data, (d) => ({
-    "TR UR1": derivedTr(d, 1),
-    "TR UR2": derivedTr(d, 2),
-    "TR UR3": derivedTr(d, 3),
+    "TR UR1": calcTrValue(d, 1),
+    "TR UR2": calcTrValue(d, 2),
+    "TR UR3": calcTrValue(d, 3),
   }));
   const units = (["1", "2", "3"] as const).filter((i) => seriesHasAny(cleaned, `TR UR${i}`));
   if (!cleaned.length || units.length === 0) return <EmptyState height={260} />;
@@ -293,15 +289,15 @@ export function OatChart({ data, period }: { data: ChillerPoint[]; period: Perio
 export function KwtrVsTrScatter({ data }: { data: ChillerPoint[] }) {
   const { hidden, toggle, legendStyle } = useHidden();
   const safe = Array.isArray(data) ? data : [];
-  const series = (kwtrKey: "kwtr_ur1" | "kwtr_ur2" | "kwtr_ur3", trKey: "tr_ur1" | "tr_ur2" | "tr_ur3") =>
+  const series = (ur: 1 | 2 | 3, kwtrKey: "kwtr_ur1" | "kwtr_ur2" | "kwtr_ur3") =>
     safe
-      .filter((d) => d && isNum(d[kwtrKey]) && d[kwtrKey] > 0 && d[kwtrKey] <= 4 && isNum(d[trKey]) && d[trKey] > 0)
-      .map((d) => ({ x: d[trKey], y: d[kwtrKey] }));
+      .filter((d) => d && isNum(d[kwtrKey]) && d[kwtrKey] > 0 && d[kwtrKey] <= 4 && isNum(calcTrValue(d, ur)) && Number(calcTrValue(d, ur)) > 0)
+      .map((d) => ({ x: Number(calcTrValue(d, ur)), y: d[kwtrKey] }));
 
   const cfg = [
-    { name: "Chiller UR1", data: series("kwtr_ur1", "tr_ur1"), color: "var(--chart-1)" },
-    { name: "Chiller UR2", data: series("kwtr_ur2", "tr_ur2"), color: "var(--chart-3)" },
-    { name: "Chiller UR3", data: series("kwtr_ur3", "tr_ur3"), color: "var(--chart-2)" },
+    { name: "Chiller UR1", data: series(1, "kwtr_ur1"), color: "var(--chart-1)" },
+    { name: "Chiller UR2", data: series(2, "kwtr_ur2"), color: "var(--chart-3)" },
+    { name: "Chiller UR3", data: series(3, "kwtr_ur3"), color: "var(--chart-2)" },
   ].filter((s) => s.data.length > 0);
 
   if (cfg.length === 0) return <EmptyState height={280} />;
