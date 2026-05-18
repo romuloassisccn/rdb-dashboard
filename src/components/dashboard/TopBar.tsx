@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Activity, Cloud, Gauge, Maximize2, Wifi } from "lucide-react";
+import { Activity, Cloud, Gauge, Maximize2, Moon, Sun, Wifi } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface Props {
@@ -81,12 +81,47 @@ export function TopBar({ externalTemp, externalTempMin, externalTempMax, cagCons
           <div className="text-[10px] uppercase tracking-widest text-muted-foreground mt-1 capitalize">{date}</div>
         </div>
         <div className="flex items-center gap-1">
-<Button size="icon" variant="ghost" onClick={onFullscreen} title="Tela cheia">
+          <ThemeToggle />
+          <Button size="icon" variant="ghost" onClick={onFullscreen} title="Tela cheia">
             <Maximize2 className="size-4" />
           </Button>
         </div>
       </div>
     </header>
+  );
+}
+
+function ThemeToggle() {
+  const [theme, setTheme] = useState<"light" | "dark">("dark");
+
+  useEffect(() => {
+    const storedTheme = window.localStorage.getItem("rdb-theme");
+    const initialTheme = storedTheme === "light" || storedTheme === "dark" ? storedTheme : "dark";
+
+    setTheme(initialTheme);
+    document.documentElement.classList.toggle("light", initialTheme === "light");
+    document.documentElement.classList.toggle("dark", initialTheme === "dark");
+  }, []);
+
+  const toggleTheme = () => {
+    const nextTheme = theme === "dark" ? "light" : "dark";
+
+    setTheme(nextTheme);
+    window.localStorage.setItem("rdb-theme", nextTheme);
+    document.documentElement.classList.toggle("light", nextTheme === "light");
+    document.documentElement.classList.toggle("dark", nextTheme === "dark");
+  };
+
+  return (
+    <Button
+      size="icon"
+      variant="ghost"
+      onClick={toggleTheme}
+      title={theme === "dark" ? "Ativar tema claro" : "Ativar tema escuro"}
+      aria-label={theme === "dark" ? "Ativar tema claro" : "Ativar tema escuro"}
+    >
+      {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+    </Button>
   );
 }
 
