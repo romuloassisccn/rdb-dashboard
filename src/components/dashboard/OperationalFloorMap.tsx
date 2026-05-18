@@ -103,6 +103,22 @@ const floorConfigs: FloorConfig[] = [
       bottomLabels: ["E", "F", "G", "H"].map((label, index) => ({ label, x: [185, 520, 920, 1300][index], y: 715 })),
     },
   },
+,
+  {
+    id: "third",
+    title: "3º Pavimento",
+    mapSrc: "/3pav_ok_2.png",
+    viewBox: "0 0 1680 784",
+    zones: [
+      { id: "E3", vavIds: ["vav_50"], maskSrc: "/zone-masks-v13/E3.png", label: { x: 300, y: 430 } },
+      { id: "F3", vavIds: ["vav_51"], maskSrc: "/zone-masks-v13/F3.png", label: { x: 560, y: 560 } },
+      { id: "G3", vavIds: ["vav_52"], maskSrc: "/zone-masks-v13/G3.png", label: { x: 980, y: 555 } },
+      { id: "G3-2", vavIds: ["vav_47"], maskSrc: "/zone-masks-v13/G3-2.png", label: { x: 1250, y: 470 } },
+      { id: "B3", vavIds: ["vav_49"], maskSrc: "/zone-masks-v13/B3.png", label: { x: 700, y: 260 } },
+      { id: "C3", vavIds: ["vav_48"], maskSrc: "/zone-masks-v13/C3.png", label: { x: 1040, y: 260 } },
+    ],
+  }
+
 ];
 
 const severityRank: Record<Severity, number> = {
