@@ -26,6 +26,7 @@ type FloorConfig = {
   aspect: string;
   zones: ZoneConfig[];
   overlayOffsetY?: number;
+  overlayOffsetYPct?: number;
   guide: {
     verticals: number[];
     horizontals: number[];
@@ -87,6 +88,7 @@ const floorConfigs: FloorConfig[] = [
     viewBox: "0 0 1668 751",
     aspect: "1668/751",
     overlayOffsetY: 24,
+    overlayOffsetYPct: 3.2,
     zones: [
       { id: "A2", title: "A2 · VAV 44", sensors: ["vav_44"], maskSrc: "/zone-masks-2pav/A2.png", label: { x: 255, y: 265 }, offsetY: -14 },
       { id: "B2", title: "B2 · VAV 43", sensors: ["vav_43"], maskSrc: "/zone-masks-2pav/B2.png", label: { x: 800, y: 282 }, offsetY: -10 },
@@ -271,11 +273,12 @@ export function OperationalFloorMap({ analytics, vavs }: { analytics: DashboardA
                   <img
                     src={floor.floorImg}
                     alt={`Planta limpa ${floor.name} Rio Design Barra`}
-                    className="absolute inset-0 h-full w-full object-contain opacity-78 mix-blend-screen"
+                    className="absolute inset-0 h-full w-full object-fill opacity-78 mix-blend-screen"
                   />
 
                   {zones.map((zone) => {
                     const style = severityStyle[zone.severity];
+                    const zoneOffsetPct = ((zone.offsetY ?? 0) / Number(floor.viewBox.split(" ")[3] || 1)) * 100;
                     return (
                       <div
                         key={`mask-${floor.id}-${zone.id}`}
@@ -291,7 +294,7 @@ export function OperationalFloorMap({ analytics, vavs }: { analytics: DashboardA
                           WebkitMaskMode: "alpha",
                           maskMode: "alpha",
                           filter: `drop-shadow(${style.glow})`,
-                          transform: `translateY(${overlayOffsetY + (zone.offsetY ?? 0)}px)`,
+                          transform: `translateY(calc(${overlayOffsetYPct}% + ${zoneOffsetPct}%))`,
                         }}
                       />
                     );
