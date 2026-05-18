@@ -227,6 +227,7 @@ export function OperationalFloorMap({ analytics, vavs }: { analytics: DashboardA
       {floorConfigs.map((floor) => {
         const zones = buildZoneStatuses(analytics, Array.isArray(vavs) ? vavs : [], floor.zones);
         const overlayOffsetY = floor.overlayOffsetY ?? 0;
+        const overlayOffsetYPct = floor.overlayOffsetYPct ?? 0;
         const criticalZones = zones.filter((zone) => ["alto", "critico"].includes(zone.severity)).length;
         const topZone = [...zones].sort((a, b) => b.criticalPct - a.criticalPct)[0];
 
