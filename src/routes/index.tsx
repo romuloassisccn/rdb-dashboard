@@ -139,8 +139,17 @@ function Dashboard() {
     const kwTrAvg = avg(series.map((point) => point.kw_tr_cag).filter((value): value is number => isNum(value) && value > 0));
     const kwTrDelta = isNum(kwTrAvg) ? kwTrAvg - kwTrTarget : null;
 
+
+    const getTr = (point: typeof series[number], ur: 1 | 2 | 3) => {
+      const direct = point[`tr_ur${ur}` as keyof ChillerPoint];
+      if (isNum(direct) && direct > 0) return direct;
+      const kw = point[`kw_ur${ur}` as keyof ChillerPoint];
+      const kwtr = point[`kwtr_ur${ur}` as keyof ChillerPoint];
+      if (isNum(kw) && kw > 0 && isNum(kwtr) && kwtr > 0 && kwtr <= 4) return kw / kwtr;
+      return null;
+    };
     const trTotals = series
-      .map((point) => [point.tr_ur1, point.tr_ur2, point.tr_ur3]
+      .map((point) => [getTr(point, 1), getTr(point, 2), getTr(point, 3)]
         .filter((value): value is number => isNum(value) && value > 0)
         .reduce((sum, value) => sum + value, 0))
       .filter((value) => value > 0);
@@ -172,7 +181,7 @@ function Dashboard() {
 
     const kwTrTrend = trendBySeries((point) => point.kw_tr_cag);
     const trTrend = trendBySeries((point) => {
-      const total = [point.tr_ur1, point.tr_ur2, point.tr_ur3]
+      const total = [getTr(point, 1), getTr(point, 2), getTr(point, 3)]
         .filter((value): value is number => isNum(value) && value > 0)
         .reduce((sum, value) => sum + value, 0);
       return total > 0 ? total : null;
@@ -212,7 +221,6 @@ function Dashboard() {
 
     const deltaAvg = (unit: typeof units[number], mode: "ag" | "ac") => {
       const values = series
-        .filter((point) => isNum(point[unit.kwtr as keyof ChillerPoint]) && Number(point[unit.kwtr as keyof ChillerPoint]) > 0)
         .map((point) => {
           const enter = point[(mode === "ag" ? unit.ewt : unit.ect) as keyof ChillerPoint];
           const leave = point[(mode === "ag" ? unit.lwt : unit.lct) as keyof ChillerPoint];

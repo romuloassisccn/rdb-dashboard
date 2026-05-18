@@ -123,6 +123,21 @@ function seriesHasAny(rows: Array<Record<string, unknown>>, key: string): boolea
   return rows.some((r) => isNum(r[key]));
 }
 
+function positive(value: unknown): number | null {
+  return isNum(value) && value > 0 ? value : null;
+}
+
+function derivedTr(point: ChillerPoint, ur: 1 | 2 | 3): number | null {
+  const direct = positive(point[`tr_ur${ur}` as keyof ChillerPoint]);
+  if (direct !== null) return direct;
+
+  const kw = positive(point[`kw_ur${ur}` as keyof ChillerPoint]);
+  const kwtr = positive(point[`kwtr_ur${ur}` as keyof ChillerPoint]);
+  if (kw !== null && kwtr !== null && kwtr <= 4) return kw / kwtr;
+
+  return null;
+}
+
 export function ChilledWaterChart({ data, period }: { data: ChillerPoint[]; period: Period }) {
   const { hidden, toggle, legendStyle } = useHidden();
   const timeAxis = makeTimeAxis(data, period);
@@ -208,9 +223,9 @@ export function TrChart({ data, period }: { data: ChillerPoint[]; period: Period
   const { hidden, toggle, legendStyle } = useHidden();
   const timeAxis = makeTimeAxis(data, period);
   const cleaned = buildSeries(data, (d) => ({
-    "TR UR1": num(d.tr_ur1) && d.tr_ur1 > 0 ? num(d.tr_ur1) : null,
-    "TR UR2": num(d.tr_ur2) && d.tr_ur2 > 0 ? num(d.tr_ur2) : null,
-    "TR UR3": num(d.tr_ur3) && d.tr_ur3 > 0 ? num(d.tr_ur3) : null,
+    "TR UR1": derivedTr(d, 1),
+    "TR UR2": derivedTr(d, 2),
+    "TR UR3": derivedTr(d, 3),
   }));
   const units = (["1", "2", "3"] as const).filter((i) => seriesHasAny(cleaned, `TR UR${i}`));
   if (!cleaned.length || units.length === 0) return <EmptyState height={260} />;
